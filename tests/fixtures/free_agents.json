@@ -1,0 +1,31 @@
+{
+  "id": 123456,
+  "seasonId": 2024,
+  "players": [
+    {
+      "player": {
+        "id": 500,
+        "fullName": "Free Agent One",
+        "proTeamId": 5,
+        "eligibleSlots": [4, 6, 12, 16],
+        "ownership": {"percentOwned": 48.2, "percentStarted": 22.0},
+        "injuryStatus": "ACTIVE",
+        "stats": [
+          {"seasonId": 2024, "statSourceId": 0, "statSplitTypeId": 0, "appliedTotal": 210.0,
+           "stats": {"1": 85, "5": 10, "20": 45, "21": 40}}
+        ]
+      }
+    },
+    {
+      "player": {
+        "id": 501,
+        "fullName": "Free Agent Two",
+        "proTeamId": 12,
+        "eligibleSlots": [14, 13, 16],
+        "ownership": {"percentOwned": 21.5, "percentStarted": 5.0},
+        "injuryStatus": "ACTIVE",
+        "stats": []
+      }
+    }
+  ]
+}

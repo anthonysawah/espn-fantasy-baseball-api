@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "espn-fantasy-baseball-api"
+version = "0.1.0"
+description = "A modern Python client for the ESPN Fantasy Baseball API."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+authors = [{ name = "ESPN Fantasy Baseball API contributors" }]
+keywords = ["espn", "fantasy", "baseball", "mlb", "api", "client"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Games/Entertainment",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+cli = ["rich>=13.0"]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "responses>=0.24",
+    "ruff>=0.4",
+    "mypy>=1.8",
+    "types-requests",
+]
+
+[project.urls]
+Homepage = "https://github.com/anthonysawah/espn-fantasy-baseball-api"
+Repository = "https://github.com/anthonysawah/espn-fantasy-baseball-api"
+Issues = "https://github.com/anthonysawah/espn-fantasy-baseball-api/issues"
+
+[project.scripts]
+espn-fb = "espn_fantasy_baseball.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["espn_fantasy_baseball*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+check_untyped_defs = true

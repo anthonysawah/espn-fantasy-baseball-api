@@ -1,0 +1,17 @@
+{
+  "id": 123456,
+  "seasonId": 2024,
+  "draftDetail": {
+    "drafted": true,
+    "picks": [
+      {"overallPickNumber": 1, "roundId": 1, "roundPickNumber": 1, "teamId": 1, "playerId": 101, "bidAmount": 55, "keeper": false},
+      {"overallPickNumber": 2, "roundId": 1, "roundPickNumber": 2, "teamId": 2, "playerId": 100, "bidAmount": 40, "keeper": false},
+      {"overallPickNumber": 3, "roundId": 1, "roundPickNumber": 3, "teamId": 3, "playerId": 102, "bidAmount": 10, "keeper": true}
+    ]
+  },
+  "players": [
+    {"player": {"id": 100, "fullName": "Catcher Clyde"}},
+    {"player": {"id": 101, "fullName": "Ace Anderson"}},
+    {"player": {"id": 102, "fullName": "Benchy Bob"}}
+  ]
+}

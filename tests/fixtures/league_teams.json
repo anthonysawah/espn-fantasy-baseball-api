@@ -1,0 +1,107 @@
+{
+  "id": 123456,
+  "seasonId": 2024,
+  "members": [
+    {"id": "{MEMBER-A}", "firstName": "Alice", "lastName": "Anderson", "displayName": "alice"},
+    {"id": "{MEMBER-B}", "firstName": "Bob", "lastName": "Brown", "displayName": "bob"},
+    {"id": "{MEMBER-C}", "firstName": "Carol", "lastName": "Chen", "displayName": "carol"}
+  ],
+  "teams": [
+    {
+      "id": 1,
+      "abbrev": "ALI",
+      "name": "Alice's Aces",
+      "owners": ["{MEMBER-A}"],
+      "logo": "https://example.com/1.png",
+      "divisionId": 0,
+      "record": {"overall": {"wins": 12, "losses": 5, "ties": 1, "pointsFor": 1422.5, "pointsAgainst": 1301.0}},
+      "transactionCounter": {"moveToActive": 14, "acquisitions": 22, "trades": 1, "acquisitionBudgetSpent": 37},
+      "rankCalculatedFinal": 1,
+      "playoffSeed": 1,
+      "waiverRank": 10,
+      "roster": {
+        "entries": [
+          {
+            "lineupSlotId": 0,
+            "acquisitionType": "DRAFT",
+            "playerPoolEntry": {
+              "player": {
+                "id": 100,
+                "fullName": "Catcher Clyde",
+                "proTeamId": 10,
+                "eligibleSlots": [0, 12, 16],
+                "injuryStatus": "ACTIVE",
+                "status": "ACTIVE",
+                "ownership": {"percentOwned": 99.1, "percentStarted": 98.0},
+                "stats": [
+                  {"seasonId": 2024, "statSourceId": 0, "statSplitTypeId": 0, "appliedTotal": 310.5,
+                   "stats": {"1": 120, "5": 18, "20": 72, "21": 63}}
+                ]
+              }
+            }
+          },
+          {
+            "lineupSlotId": 14,
+            "acquisitionType": "DRAFT",
+            "playerPoolEntry": {
+              "player": {
+                "id": 101,
+                "fullName": "Ace Anderson",
+                "proTeamId": 19,
+                "eligibleSlots": [13, 14, 16],
+                "injuryStatus": "ACTIVE",
+                "status": "ACTIVE",
+                "ownership": {"percentOwned": 99.9, "percentStarted": 99.0},
+                "stats": [
+                  {"seasonId": 2024, "statSourceId": 0, "statSplitTypeId": 0, "appliedTotal": 445.0,
+                   "stats": {"33": 18, "53": 220, "59": 2.85}}
+                ]
+              }
+            }
+          },
+          {
+            "lineupSlotId": 16,
+            "acquisitionType": "WAIVER",
+            "playerPoolEntry": {
+              "player": {
+                "id": 102,
+                "fullName": "Benchy Bob",
+                "proTeamId": 22,
+                "eligibleSlots": [5, 8, 16],
+                "injuryStatus": "DAY_TO_DAY",
+                "status": "ACTIVE",
+                "ownership": {"percentOwned": 42.0, "percentStarted": 20.5},
+                "stats": []
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "abbrev": "BOB",
+      "name": "Bob's Bombers",
+      "owners": ["{MEMBER-B}"],
+      "logo": "https://example.com/2.png",
+      "divisionId": 0,
+      "record": {"overall": {"wins": 9, "losses": 8, "ties": 1, "pointsFor": 1310.0, "pointsAgainst": 1350.0}},
+      "transactionCounter": {"moveToActive": 8, "acquisitions": 11, "trades": 2, "acquisitionBudgetSpent": 15},
+      "rankCalculatedFinal": 4,
+      "playoffSeed": 4,
+      "waiverRank": 8,
+      "roster": {"entries": []}
+    },
+    {
+      "id": 3,
+      "abbrev": "CAR",
+      "name": "Carol's Crushers",
+      "owners": ["{MEMBER-C}"],
+      "record": {"overall": {"wins": 7, "losses": 11, "ties": 0, "pointsFor": 1150.0, "pointsAgainst": 1290.0}},
+      "transactionCounter": {},
+      "rankCalculatedFinal": 8,
+      "playoffSeed": 8,
+      "roster": {"entries": []}
+    }
+  ]
+}

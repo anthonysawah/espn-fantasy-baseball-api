@@ -1,0 +1,28 @@
+{
+  "id": 123456,
+  "seasonId": 2024,
+  "status": {"currentMatchupPeriod": 2},
+  "schedule": [
+    {
+      "id": 1,
+      "matchupPeriodId": 1,
+      "winner": "HOME",
+      "home": {"teamId": 1, "totalPoints": 110.5},
+      "away": {"teamId": 2, "totalPoints": 95.0}
+    },
+    {
+      "id": 2,
+      "matchupPeriodId": 1,
+      "winner": "AWAY",
+      "home": {"teamId": 3, "totalPoints": 75.0},
+      "away": {"teamId": 1, "totalPoints": 105.0}
+    },
+    {
+      "id": 3,
+      "matchupPeriodId": 2,
+      "winner": "UNDECIDED",
+      "home": {"teamId": 1, "totalPoints": 52.3, "totalProjectedPointsLive": 120.5},
+      "away": {"teamId": 3, "totalPoints": 48.0, "totalProjectedPointsLive": 110.0}
+    }
+  ]
+}

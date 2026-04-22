@@ -1,0 +1,53 @@
+{
+  "id": 123456,
+  "seasonId": 2024,
+  "schedule": [
+    {
+      "id": 3,
+      "matchupPeriodId": 2,
+      "home": {
+        "teamId": 1,
+        "totalPoints": 52.3,
+        "rosterForCurrentScoringPeriod": {
+          "entries": [
+            {
+              "lineupSlotId": 0,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 100,
+                  "fullName": "Catcher Clyde",
+                  "proTeamId": 10,
+                  "eligibleSlots": [0, 12, 16],
+                  "stats": [
+                    {"seasonId": 2024, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 18.5,
+                     "stats": {"1": 3, "5": 1, "20": 2, "21": 3}}
+                  ]
+                }
+              }
+            },
+            {
+              "lineupSlotId": 14,
+              "playerPoolEntry": {
+                "player": {
+                  "id": 101,
+                  "fullName": "Ace Anderson",
+                  "proTeamId": 19,
+                  "eligibleSlots": [13, 14, 16],
+                  "stats": [
+                    {"seasonId": 2024, "statSourceId": 0, "statSplitTypeId": 1, "appliedTotal": 33.8,
+                     "stats": {"33": 1, "53": 8, "59": 1.35}}
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "away": {
+        "teamId": 3,
+        "totalPoints": 48.0,
+        "rosterForCurrentScoringPeriod": {"entries": []}
+      }
+    }
+  ]
+}
