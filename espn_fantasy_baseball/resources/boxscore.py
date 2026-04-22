@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from ..constants import LINEUP_SLOT_MAP
 from ..utils import coerce_float, coerce_int, decode_stats
@@ -20,7 +21,7 @@ class BoxscorePlayer:
     stats: dict[str, float] = field(default_factory=dict)
 
     @classmethod
-    def from_raw(cls, entry: Mapping[str, Any]) -> "BoxscorePlayer":
+    def from_raw(cls, entry: Mapping[str, Any]) -> BoxscorePlayer:
         pool = entry.get("playerPoolEntry", {})
         info = pool.get("player", {})
         applied = 0.0
@@ -59,7 +60,7 @@ class Boxscore:
     raw: Mapping[str, Any] | None = field(default=None, repr=False)
 
     @classmethod
-    def from_raw(cls, raw: Mapping[str, Any]) -> "Boxscore":
+    def from_raw(cls, raw: Mapping[str, Any]) -> Boxscore:
         home = raw.get("home") or {}
         away = raw.get("away") or {}
 

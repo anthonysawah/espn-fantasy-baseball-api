@@ -19,8 +19,9 @@ Public API::
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Callable
 
 from .resources import LeagueSettings, Player, Team
 
@@ -177,7 +178,7 @@ def _build_score_fn(
     prefer_stats: bool,
 ) -> Callable[[Player], float]:
     if callable(projections):
-        return projections  # type: ignore[return-value]
+        return projections
     if projections is not None:
         mapping = dict(projections)
         return lambda p: float(mapping.get(p.id, 0.0))
@@ -226,12 +227,12 @@ def _solve_assignment(
     fantasy-baseball-sized inputs (≤ 40 players × 25 slots) the greedy
     solution is provably optimal within epsilon and costs microseconds.
     """
-    NEG_INF = float("-inf")
+    neg_inf = float("-inf")
 
     def _score(p: Player, slot: str) -> float:
         if slot in _player_eligible_slots(p):
             return score_fn(p)
-        return NEG_INF
+        return neg_inf
 
     # Sort slots so "tighter" (fewer-eligible-players) slots are filled first.
     slot_order = sorted(range(len(slots)), key=lambda j: _slot_scarcity(slots[j], players))
@@ -247,7 +248,7 @@ def _solve_assignment(
             if p.id in used_player_ids:
                 continue
             s = _score(p, slot)
-            if s == NEG_INF:
+            if s == neg_inf:
                 continue
             if best is None or s > best[0]:
                 best = (s, p)

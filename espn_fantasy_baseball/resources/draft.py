@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
-from ..utils import coerce_float, coerce_int
+from ..utils import coerce_int
 
 
 @dataclass
@@ -25,7 +26,7 @@ class DraftPick:
     raw: Mapping[str, Any]
 
     @classmethod
-    def from_raw(cls, raw: Mapping[str, Any], *, player_names: Mapping[int, str] | None = None) -> "DraftPick":
+    def from_raw(cls, raw: Mapping[str, Any], *, player_names: Mapping[int, str] | None = None) -> DraftPick:
         player_id = coerce_int(raw.get("playerId"))
         name = None
         if player_names:

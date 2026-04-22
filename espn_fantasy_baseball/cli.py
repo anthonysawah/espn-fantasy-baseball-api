@@ -18,7 +18,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 from . import League, __version__
 from .exceptions import ESPNFantasyError
@@ -186,8 +186,8 @@ def _cmd_insights(args: argparse.Namespace) -> int:
     teams_by_id = {t.id: t for t in lg.teams()}
     for ins in lg.boxscore_insights(args.week):
         box = ins.boxscore
-        home = teams_by_id.get(box.home_team_id)
-        away = teams_by_id.get(box.away_team_id)
+        home = teams_by_id.get(box.home_team_id) if box.home_team_id is not None else None
+        away = teams_by_id.get(box.away_team_id) if box.away_team_id is not None else None
         home_name = home.name if home else f"team#{box.home_team_id}"
         away_name = away.name if away else f"team#{box.away_team_id}"
         print(f"\n{away_name} {box.away_score:.1f} @ {home_name} {box.home_score:.1f}")

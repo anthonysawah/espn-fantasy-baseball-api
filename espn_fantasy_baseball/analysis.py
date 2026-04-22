@@ -8,11 +8,10 @@ from sprawling and makes them easy to unit-test.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Sequence
 
 from .resources import Boxscore, BoxscorePlayer, Matchup, Team
-
 
 # ---------------------------------------------------------------------------
 # Matchup summaries
@@ -35,11 +34,10 @@ class MatchupSummary:
 
     @property
     def headline(self) -> str:
-        if self.winner_team is None:
+        if self.winner_team is None or self.loser_team is None:
             return f"{self.away_team.name} {self.away_score:.1f} @ {self.home_team.name} {self.home_score:.1f} (in progress)"
-        w, l = self.winner_team, self.loser_team
         margin = abs(self.margin)
-        return f"{w.name} beat {l.name} by {margin:.1f}"
+        return f"{self.winner_team.name} beat {self.loser_team.name} by {margin:.1f}"
 
 
 def summarize_matchup(matchup: Matchup, teams_by_id: dict[int, Team]) -> MatchupSummary:

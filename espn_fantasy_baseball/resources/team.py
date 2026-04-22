@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from ..utils import coerce_float, coerce_int
 from .player import Player
@@ -40,7 +41,7 @@ class Team:
         raw: Mapping[str, Any],
         *,
         members_by_id: Mapping[str, Mapping[str, Any]] | None = None,
-    ) -> "Team":
+    ) -> Team:
         members_by_id = members_by_id or {}
         owner_ids = list(raw.get("owners") or [])
         owner_names = [

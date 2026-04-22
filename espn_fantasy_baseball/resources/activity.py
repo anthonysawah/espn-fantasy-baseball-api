@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import datetime as _dt
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from ..constants import ACTIVITY_MAP
 from ..utils import coerce_int
@@ -22,7 +23,7 @@ class ActivityAction:
     raw: Mapping[str, Any] | None = None
 
     @classmethod
-    def from_raw(cls, raw: Mapping[str, Any]) -> "ActivityAction":
+    def from_raw(cls, raw: Mapping[str, Any]) -> ActivityAction:
         type_id = coerce_int(raw.get("type") or raw.get("msgTypeId"))
         return cls(
             type=ACTIVITY_MAP.get(type_id, f"TYPE_{type_id}"),
@@ -44,7 +45,7 @@ class Activity:
     raw: Mapping[str, Any] | None = field(default=None, repr=False)
 
     @classmethod
-    def from_raw(cls, raw: Mapping[str, Any]) -> "Activity":
+    def from_raw(cls, raw: Mapping[str, Any]) -> Activity:
         date_ms = raw.get("date")
         date = (
             _dt.datetime.fromtimestamp(date_ms / 1000, tz=_dt.timezone.utc)

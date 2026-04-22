@@ -12,8 +12,18 @@ Typical usage::
 from __future__ import annotations
 
 import json
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
+from .analysis import (
+    BoxscoreInsights,
+    MatchupSummary,
+    analyze_boxscore,
+    close_games,
+    longest_win_streak,
+    strength_of_schedule,
+    summarize_matchup,
+)
 from .client import ESPNClient
 from .constants import (
     VIEW_BOXSCORE,
@@ -27,15 +37,6 @@ from .constants import (
     VIEW_TEAM,
     VIEW_TOPICS,
     VIEW_TRANSACTIONS,
-)
-from .analysis import (
-    BoxscoreInsights,
-    MatchupSummary,
-    analyze_boxscore,
-    close_games,
-    longest_win_streak,
-    strength_of_schedule,
-    summarize_matchup,
 )
 from .optimizer import LineupPlan, optimize_lineup
 from .resources import (
@@ -203,7 +204,9 @@ class League:
         names: dict[int, str] = {}
         for p in raw.get("players") or []:
             info = p.get("player") if isinstance(p, dict) and "player" in p else p
-            pid = info.get("id") if isinstance(info, dict) else None
+            if not isinstance(info, dict):
+                continue
+            pid = info.get("id")
             if pid is not None:
                 names[int(pid)] = info.get("fullName") or ""
         return [DraftPick.from_raw(p, player_names=names) for p in picks]

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from ..utils import coerce_float, coerce_int
 
@@ -25,7 +26,7 @@ class Matchup:
     raw: Mapping[str, Any]
 
     @classmethod
-    def from_raw(cls, raw: Mapping[str, Any]) -> "Matchup":
+    def from_raw(cls, raw: Mapping[str, Any]) -> Matchup:
         home = raw.get("home") or {}
         away = raw.get("away") or {}
         return cls(

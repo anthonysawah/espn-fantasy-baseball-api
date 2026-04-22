@@ -44,7 +44,7 @@ def test_power_command(patched_cli, capsys) -> None:
     assert rc == 0
     out = capsys.readouterr().out
     # Alice is the clear #1 by both PF and record
-    lines = [l for l in out.splitlines() if l.strip()]
+    lines = [line for line in out.splitlines() if line.strip()]
     assert "Alice's Aces" in lines[0]
 
 

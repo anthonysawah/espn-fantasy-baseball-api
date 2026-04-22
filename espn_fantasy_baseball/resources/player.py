@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from ..constants import INJURY_STATUS_MAP, LINEUP_SLOT_MAP
 from ..utils import coerce_float, coerce_int, decode_positions, decode_pro_team, decode_stats
@@ -20,7 +21,7 @@ class PlayerStats:
     applied_total: float = 0.0
 
     @classmethod
-    def from_raw(cls, raw: Mapping[str, Any]) -> "PlayerStats":
+    def from_raw(cls, raw: Mapping[str, Any]) -> PlayerStats:
         source_id = raw.get("statSourceId")
         split_id = raw.get("statSplitTypeId")
         from ..constants import STAT_SOURCE, STAT_SPLIT
@@ -56,7 +57,7 @@ class Player:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_roster_entry(cls, entry: Mapping[str, Any]) -> "Player":
+    def from_roster_entry(cls, entry: Mapping[str, Any]) -> Player:
         """Build a :class:`Player` from a ``roster.entries[i]`` dict."""
         player_pool = entry.get("playerPoolEntry", {})
         info = player_pool.get("player", {})
@@ -78,7 +79,7 @@ class Player:
         )
 
     @classmethod
-    def from_player_pool(cls, pool_entry: Mapping[str, Any]) -> "Player":
+    def from_player_pool(cls, pool_entry: Mapping[str, Any]) -> Player:
         """Build a :class:`Player` from a free-agent / player-pool entry."""
         info = pool_entry.get("player", {})
         injury = info.get("injuryStatus")

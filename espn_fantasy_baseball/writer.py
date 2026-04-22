@@ -24,13 +24,14 @@ from your browser's Network tab and compare.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from .client import ESPNClient
 from .constants import FANTASY_WRITE_BASE
 from .exceptions import AuthenticationError
-from .optimizer import BENCH_SLOTS, IL_SLOT, LineupMove, LineupPlan
+from .optimizer import IL_SLOT, LineupPlan
 
 # Reverse-map of LINEUP_SLOT_MAP for the slots users are likely to target.
 # We keep this explicit so that ambiguous abbreviations (e.g. "OF" which

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from ..constants import LINEUP_SLOT_MAP, STAT_ID_MAP
 from ..utils import coerce_float, coerce_int
@@ -19,7 +20,7 @@ class ScoringItem:
     is_reverse: bool = False
 
     @classmethod
-    def from_raw(cls, raw: Mapping[str, Any]) -> "ScoringItem":
+    def from_raw(cls, raw: Mapping[str, Any]) -> ScoringItem:
         sid = coerce_int(raw.get("statId"))
         return cls(
             stat_id=sid,
@@ -48,7 +49,7 @@ class LeagueSettings:
     raw: Mapping[str, Any] | None = field(default=None, repr=False)
 
     @classmethod
-    def from_raw(cls, league_raw: Mapping[str, Any]) -> "LeagueSettings":
+    def from_raw(cls, league_raw: Mapping[str, Any]) -> LeagueSettings:
         settings = league_raw.get("settings") or {}
         scoring = (settings.get("scoringSettings") or {})
         roster = (settings.get("rosterSettings") or {})
