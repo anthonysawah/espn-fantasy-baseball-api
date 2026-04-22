@@ -1,0 +1,61 @@
+name: Bug report
+description: File a bug report.
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.  **Do not paste your
+        `espn_s2` or `SWID` cookie values here** — treat them like passwords.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Also tell us what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: A short code snippet that triggers the bug.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Traceback
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.11"
+
+  - type: dropdown
+    id: league-type
+    attributes:
+      label: League type
+      options:
+        - Public
+        - Private (using cookies)
+
+  - type: input
+    id: season
+    attributes:
+      label: Season
+      placeholder: "2024"
