@@ -28,6 +28,16 @@ from .constants import (
     VIEW_TOPICS,
     VIEW_TRANSACTIONS,
 )
+from .analysis import (
+    BoxscoreInsights,
+    MatchupSummary,
+    analyze_boxscore,
+    close_games,
+    longest_win_streak,
+    strength_of_schedule,
+    summarize_matchup,
+)
+from .optimizer import LineupPlan, optimize_lineup
 from .resources import (
     Activity,
     Boxscore,
@@ -37,6 +47,7 @@ from .resources import (
     Player,
     Team,
 )
+from .writer import LeagueWriter
 
 
 class League:
@@ -297,6 +308,66 @@ class League:
 
         ranked = sorted(((t, _score(t)) for t in teams), key=lambda p: p[1], reverse=True)
         return ranked
+
+    # ------------------------------------------------------------------
+    # Lineup optimization
+    # ------------------------------------------------------------------
+
+    def optimize_lineup(
+        self,
+        team: int | Team,
+        *,
+        projections: Mapping[int, float] | None = None,
+    ) -> LineupPlan:
+        """Compute the best lineup for ``team`` given league roster settings.
+
+        Pass either a :class:`Team` instance or a team id.  ``projections``
+        is an optional ``{player_id: points}`` override; if omitted each
+        player's season applied total (or an attached projection) is used.
+        """
+        team_obj = team if isinstance(team, Team) else self.team(team)
+        return optimize_lineup(team_obj, self.settings(), projections=projections)
+
+    # ------------------------------------------------------------------
+    # Matchup / boxscore analytics (no extra network calls)
+    # ------------------------------------------------------------------
+
+    def summarize_week(self, matchup_period: int) -> list[MatchupSummary]:
+        """Return :class:`MatchupSummary` for every matchup in a period."""
+        teams_by_id = {t.id: t for t in self.teams()}
+        return [summarize_matchup(m, teams_by_id) for m in self.matchups(matchup_period)]
+
+    def boxscore_insights(self, matchup_period: int) -> list[BoxscoreInsights]:
+        """Top / bottom performers + bench points for every boxscore in a period."""
+        return [analyze_boxscore(b) for b in self.boxscores(matchup_period)]
+
+    def strength_of_schedule(self, team: int | Team) -> float:
+        """Average opponent points-for for a given team's played matchups."""
+        team_obj = team if isinstance(team, Team) else self.team(team)
+        teams_by_id = {t.id: t for t in self.teams()}
+        return strength_of_schedule(team_obj, self.schedule(), teams_by_id)
+
+    def close_games(self, *, margin_threshold: float = 5.0) -> list[Matchup]:
+        """All completed matchups decided by less than ``margin_threshold`` points."""
+        return close_games(self.schedule(), margin_threshold=margin_threshold)
+
+    def longest_win_streak(self, team: int | Team) -> int:
+        """Longest winning streak for ``team`` in the season so far."""
+        team_obj = team if isinstance(team, Team) else self.team(team)
+        return longest_win_streak(team_obj, self.schedule())
+
+    # ------------------------------------------------------------------
+    # Write operations
+    # ------------------------------------------------------------------
+
+    def writer(self, team_id: int) -> LeagueWriter:
+        """Return a :class:`LeagueWriter` scoped to ``team_id``.
+
+        Requires that the :class:`League` was constructed with valid
+        ``espn_s2`` + ``swid`` cookies (otherwise the first write call
+        raises :class:`AuthenticationError`).
+        """
+        return LeagueWriter(self._client, team_id=team_id)
 
     # ------------------------------------------------------------------
     # Repr

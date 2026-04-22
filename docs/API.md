@@ -44,7 +44,7 @@ League(
 | `client` | Pre-built `ESPNClient` (overrides the other args). |
 | `**client_kwargs` | Forwarded to `ESPNClient` (e.g. `timeout`, `max_retries`, `session`, `user_agent`). |
 
-### Methods
+### Read methods
 
 | Method | Returns | Notes |
 | --- | --- | --- |
@@ -62,6 +62,23 @@ League(
 | `recent_activity(size=25)` | `list[Activity]` | Adds / drops / trades feed. |
 | `power_rankings(weights=None)` | `list[tuple[Team, float]]` | Blended score, high first. |
 | `refresh()` | `None` | Drop the in-process cache. |
+
+### Optimizer & analytics methods
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `optimize_lineup(team, projections=None)` | `LineupPlan` | Best lineup, eligibility-aware. |
+| `summarize_week(period)` | `list[MatchupSummary]` | Pretty headlines + team refs. |
+| `boxscore_insights(period)` | `list[BoxscoreInsights]` | Top performer, bench points. |
+| `strength_of_schedule(team)` | `float` | Mean PF of opponents played. |
+| `close_games(margin_threshold=5.0)` | `list[Matchup]` | Finals decided by < threshold. |
+| `longest_win_streak(team)` | `int` | Streak length so far. |
+
+### Write methods
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `writer(team_id)` | `LeagueWriter` | Raises `AuthenticationError` without cookies. |
 
 Property `league_id`, `year`, and `client` give access to the underlying
 configuration. All returned JSON is stashed on each resource as `.raw`.
@@ -311,6 +328,76 @@ ESPNFantasyError
 ```
 
 `ESPNAPIError` carries `status_code` and `response_text` attributes.
+
+---
+
+## `LeagueWriter`
+
+Authenticated write operations for a single team. Construct via
+`lg.writer(team_id)`.
+
+| Method | Purpose |
+| --- | --- |
+| `set_lineup(moves, *, scoring_period)` | Submit lineup moves. `moves` is an iterable of `{player_id, from_slot, to_slot}` dicts. |
+| `apply_plan(plan, *, scoring_period)` | Submit the changed moves from a `LineupPlan`. |
+| `add_player(player_id, *, drop_player_id=None, bid_amount=0, scoring_period, via_waiver=False)` | Free-agent / waiver add, optionally with a drop. |
+| `drop_player(player_id, *, scoring_period)` | Drop without a replacement. |
+| `move_to_il(player_id, *, from_slot="BE", scoring_period)` | Shift to IL. |
+| `move_off_il(player_id, *, to_slot="BE", scoring_period)` | Pull off IL. |
+| `propose_trade(*, to_team_id, offering, requesting, expiration_days=2)` | Multi-leg trade offer. |
+| `respond_to_trade(trade_id, *, accept)` | Accept or reject an incoming offer. |
+
+Each method returns a `WriteResult(ok, status_code, payload, url)`.
+Call `.raise_for_status()` to turn non-2xx into `AuthenticationError`.
+
+---
+
+## `optimize_lineup` / `LineupPlan`
+
+```python
+from espn_fantasy_baseball import optimize_lineup
+
+plan = optimize_lineup(team, settings, projections=None, prefer_stats=True)
+```
+
+Returns a `LineupPlan`:
+
+```python
+@dataclass
+class LineupPlan:
+    moves: list[LineupMove]       # every player's assignment
+    projected_total: float        # sum of starter scores
+    unfilled_slots: list[str]
+
+    def changes() -> list[LineupMove]   # only the ones that differ from current
+    def summary() -> str                 # human-readable report
+
+@dataclass
+class LineupMove:
+    player: Player
+    from_slot: str | None
+    to_slot: str
+```
+
+`projections` is either a `{player_id: points}` mapping or a callable
+`Player -> float`. When omitted, each player's attached season or
+season-projection `applied_total` is used.
+
+---
+
+## Analytics helpers
+
+All importable from the top-level package:
+
+| Symbol | What it is |
+| --- | --- |
+| `MatchupSummary` | Dataclass: period, home/away team, scores, winner/loser, `headline`. |
+| `BoxscoreInsights` | Dataclass: top performer per side, bench points, starters lists. |
+| `summarize_matchup(m, teams_by_id)` | Builds `MatchupSummary`. |
+| `analyze_boxscore(box)` | Builds `BoxscoreInsights`. |
+| `strength_of_schedule(team, schedule, teams_by_id)` | `float`. |
+| `close_games(schedule, *, margin_threshold=5.0)` | Finals within the threshold. |
+| `longest_win_streak(team, schedule)` | `int`. |
 
 ---
 

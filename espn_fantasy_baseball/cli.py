@@ -115,6 +115,90 @@ def _cmd_settings(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_optimize(args: argparse.Namespace) -> int:
+    lg = _league_from_args(args)
+    plan = lg.optimize_lineup(args.team)
+    print(plan.summary())
+    if args.apply:
+        writer = lg.writer(args.team)
+        result = writer.apply_plan(plan, scoring_period=args.period)
+        print(f"\n[apply] HTTP {result.status_code}  ok={result.ok}")
+    return 0
+
+
+def _cmd_add(args: argparse.Namespace) -> int:
+    lg = _league_from_args(args)
+    writer = lg.writer(args.team)
+    result = writer.add_player(
+        args.player,
+        drop_player_id=args.drop,
+        bid_amount=args.bid,
+        scoring_period=args.period,
+        via_waiver=args.waiver,
+    )
+    print(f"HTTP {result.status_code}  ok={result.ok}")
+    return 0 if result.ok else 1
+
+
+def _cmd_drop(args: argparse.Namespace) -> int:
+    lg = _league_from_args(args)
+    writer = lg.writer(args.team)
+    result = writer.drop_player(args.player, scoring_period=args.period)
+    print(f"HTTP {result.status_code}  ok={result.ok}")
+    return 0 if result.ok else 1
+
+
+def _cmd_il_on(args: argparse.Namespace) -> int:
+    lg = _league_from_args(args)
+    writer = lg.writer(args.team)
+    result = writer.move_to_il(
+        args.player, from_slot=args.from_slot, scoring_period=args.period
+    )
+    print(f"HTTP {result.status_code}  ok={result.ok}")
+    return 0 if result.ok else 1
+
+
+def _cmd_il_off(args: argparse.Namespace) -> int:
+    lg = _league_from_args(args)
+    writer = lg.writer(args.team)
+    result = writer.move_off_il(
+        args.player, to_slot=args.to_slot, scoring_period=args.period
+    )
+    print(f"HTTP {result.status_code}  ok={result.ok}")
+    return 0 if result.ok else 1
+
+
+def _cmd_trade(args: argparse.Namespace) -> int:
+    lg = _league_from_args(args)
+    writer = lg.writer(args.team)
+    result = writer.propose_trade(
+        to_team_id=args.to_team,
+        offering=args.offering,
+        requesting=args.requesting,
+        expiration_days=args.expires,
+    )
+    print(f"HTTP {result.status_code}  ok={result.ok}")
+    return 0 if result.ok else 1
+
+
+def _cmd_insights(args: argparse.Namespace) -> int:
+    lg = _league_from_args(args)
+    teams_by_id = {t.id: t for t in lg.teams()}
+    for ins in lg.boxscore_insights(args.week):
+        box = ins.boxscore
+        home = teams_by_id.get(box.home_team_id)
+        away = teams_by_id.get(box.away_team_id)
+        home_name = home.name if home else f"team#{box.home_team_id}"
+        away_name = away.name if away else f"team#{box.away_team_id}"
+        print(f"\n{away_name} {box.away_score:.1f} @ {home_name} {box.home_score:.1f}")
+        if ins.top_home:
+            print(f"  Top {home_name}: {ins.top_home.player.name} ({ins.top_home.points:.1f})")
+        if ins.top_away:
+            print(f"  Top {away_name}: {ins.top_away.player.name} ({ins.top_away.points:.1f})")
+        print(f"  Bench points — {home_name}: {ins.bench_points_home:.1f}  {away_name}: {ins.bench_points_away:.1f}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="espn-fb", description="ESPN Fantasy Baseball CLI")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -151,6 +235,55 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_settings = sub.add_parser("settings", parents=[common], help="Show league settings")
     p_settings.set_defaults(func=_cmd_settings)
+
+    # ---- Write / analytics commands ---------------------------------
+
+    p_opt = sub.add_parser("optimize", parents=[common], help="Compute the best lineup for a team")
+    p_opt.add_argument("--team", type=int, required=True, help="Team id")
+    p_opt.add_argument("--apply", action="store_true", help="Actually submit the moves (requires auth)")
+    p_opt.add_argument("--period", type=int, default=0, help="Scoring period id for the submit (required with --apply)")
+    p_opt.set_defaults(func=_cmd_optimize)
+
+    p_add = sub.add_parser("add", parents=[common], help="Add a free agent (optionally dropping someone)")
+    p_add.add_argument("--team", type=int, required=True)
+    p_add.add_argument("--player", type=int, required=True, help="Player id to add")
+    p_add.add_argument("--drop", type=int, default=None, help="Player id to drop")
+    p_add.add_argument("--bid", type=int, default=0, help="FAAB bid amount")
+    p_add.add_argument("--period", type=int, required=True, help="Scoring period id")
+    p_add.add_argument("--waiver", action="store_true", help="Queue as a waiver claim instead of executing")
+    p_add.set_defaults(func=_cmd_add)
+
+    p_drop = sub.add_parser("drop", parents=[common], help="Drop a player")
+    p_drop.add_argument("--team", type=int, required=True)
+    p_drop.add_argument("--player", type=int, required=True)
+    p_drop.add_argument("--period", type=int, required=True)
+    p_drop.set_defaults(func=_cmd_drop)
+
+    p_ilon = sub.add_parser("il-on", parents=[common], help="Move a player onto the IL")
+    p_ilon.add_argument("--team", type=int, required=True)
+    p_ilon.add_argument("--player", type=int, required=True)
+    p_ilon.add_argument("--from-slot", default="BE", help="Current slot (default BE)")
+    p_ilon.add_argument("--period", type=int, required=True)
+    p_ilon.set_defaults(func=_cmd_il_on)
+
+    p_iloff = sub.add_parser("il-off", parents=[common], help="Move a player off the IL")
+    p_iloff.add_argument("--team", type=int, required=True)
+    p_iloff.add_argument("--player", type=int, required=True)
+    p_iloff.add_argument("--to-slot", default="BE", help="Destination slot (default BE)")
+    p_iloff.add_argument("--period", type=int, required=True)
+    p_iloff.set_defaults(func=_cmd_il_off)
+
+    p_trade = sub.add_parser("trade", parents=[common], help="Propose a trade")
+    p_trade.add_argument("--team", type=int, required=True, help="Your team id")
+    p_trade.add_argument("--to-team", type=int, required=True, help="Other team id")
+    p_trade.add_argument("--offering", type=int, nargs="+", required=True, help="Player ids you're sending")
+    p_trade.add_argument("--requesting", type=int, nargs="+", required=True, help="Player ids you want")
+    p_trade.add_argument("--expires", type=int, default=2, help="Days until offer expires")
+    p_trade.set_defaults(func=_cmd_trade)
+
+    p_ins = sub.add_parser("insights", parents=[common], help="Per-matchup performance insights for a week")
+    p_ins.add_argument("--week", type=int, required=True)
+    p_ins.set_defaults(func=_cmd_insights)
 
     return parser
 

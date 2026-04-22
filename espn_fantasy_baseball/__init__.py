@@ -15,6 +15,15 @@ For private leagues pass ``espn_s2`` and ``swid`` cookies::
 
 from __future__ import annotations
 
+from .analysis import (
+    BoxscoreInsights,
+    MatchupSummary,
+    analyze_boxscore,
+    close_games,
+    longest_win_streak,
+    strength_of_schedule,
+    summarize_matchup,
+)
 from .client import ESPNClient
 from .exceptions import (
     AuthenticationError,
@@ -25,6 +34,7 @@ from .exceptions import (
     PrivateLeagueError,
 )
 from .league import League
+from .optimizer import LineupMove, LineupPlan, optimize_lineup
 from .resources import (
     Activity,
     ActivityAction,
@@ -38,8 +48,9 @@ from .resources import (
     ScoringItem,
     Team,
 )
+from .writer import LeagueWriter, WriteResult
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "League",
@@ -56,6 +67,21 @@ __all__ = [
     "ActivityAction",
     "LeagueSettings",
     "ScoringItem",
+    # optimizer
+    "LineupMove",
+    "LineupPlan",
+    "optimize_lineup",
+    # writer
+    "LeagueWriter",
+    "WriteResult",
+    # analysis
+    "MatchupSummary",
+    "BoxscoreInsights",
+    "summarize_matchup",
+    "analyze_boxscore",
+    "strength_of_schedule",
+    "close_games",
+    "longest_win_streak",
     # exceptions
     "ESPNFantasyError",
     "ESPNAPIError",

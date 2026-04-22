@@ -131,10 +131,12 @@ shared `requests.Session`) and subsequent calls are much faster.
 
 ### Can I change my lineup / add / drop / trade from this library?
 
-**Yes — as of v0.2.** See the [Writing section in API.md](./API.md) and
-the cookbook for `lg.lineup_optimizer(...)`, `lg.add_player(...)`,
-`lg.drop_player(...)`, `lg.move_to_il(...)`, and
-`lg.propose_trade(...)`. Write operations require valid auth cookies.
+**Yes — as of v0.2.** See the [managing guide](./MANAGING.md) for
+`lg.writer(team_id)` → `set_lineup`, `apply_plan`, `add_player`,
+`drop_player`, `move_to_il`, `move_off_il`, `propose_trade`,
+`respond_to_trade`. Write operations require valid auth cookies.
+The lineup optimizer (`lg.optimize_lineup(team)`) pairs nicely with
+`writer.apply_plan(...)`.
 
 ### Does this work for ESPN Fantasy Football / Basketball / Hockey?
 

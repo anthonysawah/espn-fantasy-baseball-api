@@ -40,6 +40,15 @@ A modern, typed, friendly Python client for the **ESPN Fantasy Baseball** API.
 
 - **Read the whole league** — settings, standings, schedules, matchups,
   boxscores, rosters, drafts, free agents, activity feed.
+- **Manage the whole league** — set lineups, add / drop free agents and
+  waiver claims (FAAB-aware), move players on and off the IL, propose
+  and respond to trades.
+- **Optimize your lineup** — a slot-aware solver that maximises projected
+  points, routes injured players to the IL, and can submit the moves for
+  you with one call.
+- **Matchup analytics** — summaries, boxscore insights (top performer,
+  bench points left on the table), strength-of-schedule, close-games,
+  longest winning streak.
 - **Private-league auth** via `espn_s2` / `SWID` cookies, with braces
   auto-normalized.
 - **Decoded everything** — no more `stats["5"]`, you get `stats["HR"]`.
@@ -51,7 +60,7 @@ A modern, typed, friendly Python client for the **ESPN Fantasy Baseball** API.
   `lg.refresh()` to invalidate.
 - **Retries on transient errors** (429 / 5xx) with exponential backoff.
 - **Zero heavy deps** — just `requests`.
-- **CLI** — `espn-fb standings --league 123456 --year 2024`.
+- **CLI** — `espn-fb optimize --team 1 --apply` and friends.
 - **Test-friendly** — swap the `requests.Session` for your own mock;
   see `tests/conftest.py`.
 
@@ -116,6 +125,8 @@ Installing the package adds an `espn-fb` command. All subcommands take
 `--league` and `--year`; private leagues also take `--espn-s2` / `--swid`
 (or read them from the environment).
 
+**Read**
+
 | Command | Purpose |
 | --- | --- |
 | `espn-fb standings` | Current standings, best record first. |
@@ -125,6 +136,18 @@ Installing the package adds an `espn-fb` command. All subcommands take
 | `espn-fb draft` | The draft recap in overall-pick order. |
 | `espn-fb power` | Blended power rankings (points-for + win-pct). |
 | `espn-fb settings` | Name, size, scoring type, roster slots, scoring rules. |
+| `espn-fb insights --week N` | Top performers + bench points per matchup. |
+
+**Manage** (require `ESPN_S2` / `SWID`)
+
+| Command | Purpose |
+| --- | --- |
+| `espn-fb optimize --team ID [--apply --period N]` | Show the optimal lineup; with `--apply`, submit it. |
+| `espn-fb add --team ID --player PID [--drop PID --bid N --waiver]` | Free-agent or waiver pickup. |
+| `espn-fb drop --team ID --player PID --period N` | Drop a player. |
+| `espn-fb il-on --team ID --player PID --from-slot BE --period N` | Move onto IL. |
+| `espn-fb il-off --team ID --player PID --to-slot BE --period N` | Activate off IL. |
+| `espn-fb trade --team ID --to-team ID --offering … --requesting …` | Propose a trade. |
 
 ```bash
 espn-fb standings --league 123456 --year 2024
@@ -191,11 +214,67 @@ for event in lg.recent_activity(size=10):
         print(f"  team={a.team_id} {a.type:<12} player#{a.player_id}")
 ```
 
-More recipes in [`docs/COOKBOOK.md`](./docs/COOKBOOK.md).
+### Optimize and submit your lineup
+
+```python
+# Compute the best lineup by projected points
+plan = lg.optimize_lineup(team_id=1)
+print(plan.summary())
+
+# Ship it — requires auth cookies
+writer = lg.writer(team_id=1)
+writer.apply_plan(plan, scoring_period=115)
+```
+
+### Add a free agent, drop a player, move to IL
+
+```python
+w = lg.writer(team_id=1)
+
+w.add_player(player_id=41234, drop_player_id=39928, bid_amount=7, scoring_period=115)
+w.move_to_il(player_id=39928, from_slot="2B", scoring_period=115)
+w.drop_player(player_id=10001, scoring_period=115)
+```
+
+### Propose (or respond to) a trade
+
+```python
+w = lg.writer(team_id=1)
+w.propose_trade(
+    to_team_id=2,
+    offering=[41234, 39928],
+    requesting=[88888],
+    expiration_days=2,
+)
+# Later, when a counterparty sends you one:
+w.respond_to_trade(trade_id=77, accept=True)
+```
+
+### Matchup analytics
+
+```python
+for summary in lg.summarize_week(12):
+    print(summary.headline)
+
+for ins in lg.boxscore_insights(12):
+    print(f"Top performer: {ins.top_home.player.name} ({ins.top_home.points:.1f})")
+    print(f"Bench points left on the table: {ins.bench_points_home:.1f}")
+
+# Strength of schedule, close games, streaks
+print("Tough schedule?", lg.strength_of_schedule(team_id=1))
+for m in lg.close_games(margin_threshold=5.0):
+    print(m)
+print("Longest win streak:", lg.longest_win_streak(team_id=1))
+```
+
+More recipes in [`docs/COOKBOOK.md`](./docs/COOKBOOK.md) and a complete
+management guide in [`docs/MANAGING.md`](./docs/MANAGING.md).
 
 ---
 
 ## API surface
+
+**Reading**
 
 | Resource | How to get it |
 | --- | --- |
@@ -209,6 +288,30 @@ More recipes in [`docs/COOKBOOK.md`](./docs/COOKBOOK.md).
 | `Player \| None` | `lg.player_by_id(player_id)` |
 | `list[Activity]` | `lg.recent_activity(size=25)` |
 | `list[tuple[Team, float]]` | `lg.power_rankings(weights=...)` |
+
+**Optimizing + analytics**
+
+| Helper | How to get it |
+| --- | --- |
+| `LineupPlan` | `lg.optimize_lineup(team, projections=...)` |
+| `list[MatchupSummary]` | `lg.summarize_week(week)` |
+| `list[BoxscoreInsights]` | `lg.boxscore_insights(week)` |
+| `float` (SoS) | `lg.strength_of_schedule(team)` |
+| `list[Matchup]` | `lg.close_games(margin_threshold=5.0)` |
+| `int` | `lg.longest_win_streak(team)` |
+
+**Writing** (requires auth cookies)
+
+| Operation | How to call it |
+| --- | --- |
+| `LeagueWriter` scoped to a team | `lg.writer(team_id)` |
+| Apply optimizer result | `w.apply_plan(plan, scoring_period=...)` |
+| Set lineup manually | `w.set_lineup(moves, scoring_period=...)` |
+| Free-agent / waiver add | `w.add_player(pid, drop_player_id=..., bid_amount=..., scoring_period=..., via_waiver=False)` |
+| Drop | `w.drop_player(pid, scoring_period=...)` |
+| IL on / off | `w.move_to_il(pid, from_slot=..., scoring_period=...)` / `w.move_off_il(...)` |
+| Propose trade | `w.propose_trade(to_team_id=..., offering=[...], requesting=[...])` |
+| Accept / reject trade | `w.respond_to_trade(trade_id, accept=True)` |
 
 Every resource also exposes `.raw` for the original ESPN JSON payload.
 Full reference in [`docs/API.md`](./docs/API.md).
@@ -287,7 +390,10 @@ docs/                      AUTHENTICATION, API, COOKBOOK, FAQ, CONTRIBUTING
   `espn_s2` / `SWID` and use them safely.
 - [`docs/API.md`](./docs/API.md) — complete reference for every public
   class and method.
-- [`docs/COOKBOOK.md`](./docs/COOKBOOK.md) — 15+ practical recipes.
+- [`docs/MANAGING.md`](./docs/MANAGING.md) — guide to lineup
+  optimization, add/drop, IL moves, trades, and the CLI commands that
+  drive them.
+- [`docs/COOKBOOK.md`](./docs/COOKBOOK.md) — 20+ practical recipes.
 - [`docs/FAQ.md`](./docs/FAQ.md) — common questions and troubleshooting.
 - [`docs/CONTRIBUTING.md`](./docs/CONTRIBUTING.md) — dev setup, style,
   how to add a new endpoint.
@@ -320,9 +426,11 @@ Security reports: see [`SECURITY.md`](./SECURITY.md).
 - ESPN's API is **not public**. Endpoints, field names and semantics can
   change without warning. This library tracks behavior observed as of
   the 2024 season and ships with a test suite that documents it.
-- The client is **read-only**. Lineup edits, add/drop and trade
-  proposals go through a separate authenticated write host and are out
-  of scope for this project.
+- Write operations hit `lm-api-writes.fantasy.espn.com`. ESPN sometimes
+  returns `200 OK` with an error inside the payload for borderline
+  illegal moves (e.g. a lineup change after lineup lock); the
+  `WriteResult` exposes both the HTTP status and the response body so
+  you can handle both.
 - This project is not affiliated with, endorsed by, or sponsored by
   ESPN, MLB, or any Major League Baseball team. All product and company
   names are trademarks of their respective holders.

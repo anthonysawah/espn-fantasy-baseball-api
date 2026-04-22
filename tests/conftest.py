@@ -56,12 +56,18 @@ class FakeSession:
         self.route_map = dict(route_map)
         self.default = default
         self.calls: list[tuple[str, str, Mapping[str, Any] | None]] = []
+        self.posts: list[tuple[str, Any]] = []
+        self.post_response: Any = {"ok": True}
+        self.post_status: int = 200
         self.cookies = _FakeCookieJar()
         self.headers: dict[str, str] = {}
 
     # Mimic the pieces of requests.Session that our code uses.
     def request(self, method: str, url: str, *, headers=None, json=None, timeout=None):  # noqa: ARG002
         self.calls.append((method, url, headers))
+        if method.upper() == "POST":
+            self.posts.append((url, json))
+            return FakeResponse(self.post_response, status_code=self.post_status)
         parsed = urlparse(url)
         qs = parse_qs(parsed.query)
         views = tuple(sorted(qs.get("view", [])))
@@ -77,9 +83,8 @@ class FakeSession:
         return FakeResponse(payload)
 
 
-@pytest.fixture
-def fake_league() -> League:
-    routes = {
+def _default_routes() -> dict[str, Any]:
+    return {
         "mSettings": load_fixture("league_settings.json"),
         "mRoster+mTeam": load_fixture("league_teams.json"),
         "mTeam": load_fixture("league_teams.json"),
@@ -89,6 +94,24 @@ def fake_league() -> League:
         "kona_player_info+mPlayer": load_fixture("free_agents.json"),
         "mBoxscore+mMatchup+mRoster": load_fixture("boxscore.json"),
     }
-    session = FakeSession(routes)
-    client = ESPNClient(league_id=123456, year=2024, session=session)
+
+
+@pytest.fixture
+def fake_session() -> FakeSession:
+    return FakeSession(_default_routes())
+
+
+@pytest.fixture
+def fake_league(fake_session) -> League:
+    client = ESPNClient(league_id=123456, year=2024, session=fake_session)
+    return League(league_id=123456, year=2024, client=client)
+
+
+@pytest.fixture
+def authed_league(fake_session) -> League:
+    """League constructed with cookies so write operations are allowed."""
+    client = ESPNClient(
+        league_id=123456, year=2024, session=fake_session,
+        espn_s2="token", swid="{abc}",
+    )
     return League(league_id=123456, year=2024, client=client)
