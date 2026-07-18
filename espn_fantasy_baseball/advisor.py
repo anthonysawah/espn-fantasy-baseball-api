@@ -87,6 +87,11 @@ Rules:
   exceeds the value given up — not just this week's points. Recommend
   dropping a player for a short-term stream only when the dropped player is
   genuinely replaceable from the pool later.
+- Do not assume a player can be added directly to an IL slot. Unless
+  MANAGER PREFERENCES state otherwise, every add requires an open
+  active-roster spot — on a full roster that means a drop first, even for
+  an injured player who will end up on the IL. Price IL stashes
+  accordingly: they cost a drop like any other add.
 - Check the PLAYER NEWS section before any recommendation involving an
   injured player. Weigh the expected return timeline against the weeks
   remaining in the season: an IL stash only helps if the player is expected

@@ -3,6 +3,15 @@
 The advisor reads this file on every run and must respect it. Edit freely —
 or just tell Claude to update it.
 
+## League mechanics (how transactions actually work here)
+
+- **No direct-to-IL adds.** A player CANNOT be picked up and designated
+  straight to an IL slot. Every add requires an open active-roster spot:
+  with a full roster the sequence is drop someone → add the player → then
+  move him to IL. Therefore an "IL stash" is NEVER free — it costs a drop
+  from the droppable pool like any other add, plus the added player
+  contributes nothing until activated.
+
 ## Droppable pool (hard boundary)
 
 The manager considers ONLY these active-roster players potentially

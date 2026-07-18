@@ -212,6 +212,7 @@ def test_system_prompt_contains_verification_checklist(fake_league):
     (call,) = client.messages.calls
     assert "verification checklist" in call["system"]
     assert "manufacture a drop" in call["system"].lower()
+    assert "directly to an IL slot" in call["system"]
 
 
 def test_preferences_included_and_marked_binding(fake_league):
