@@ -10,10 +10,18 @@ prioritized, actionable report for **your** team:
   outscoring starters.
 - **Matchup strategy** — how to play the current week given the score.
 
-It works by building a text snapshot of your league (settings + scoring,
-standings, your full roster with last-7/last-15 splits and injury statuses,
-the current matchup, the hottest and most-owned free agents overall and by
-position, and recent league transactions) and asking Claude to analyze it.
+It works by building a text snapshot of your league (settings + scoring +
+season timeline, standings, your full roster with last-7/15/30 splits,
+rest-of-season projections and injury statuses, the current matchup, the
+hottest and most-owned free agents overall and by position, recent news
+stories for every injured player — including expected return timelines —
+and recent league transactions) and asking Claude to analyze it.
+
+The prompt bakes in league-size awareness: every recommended drop is
+treated as likely permanent (in deep leagues dropped players get claimed),
+labeled with a claim risk, and weighed on rest-of-season value — not just
+this week's points. Injury stashes are only recommended when the return
+timeline beats the weeks remaining in the season.
 
 ## Setup
 

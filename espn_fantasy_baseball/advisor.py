@@ -24,6 +24,7 @@ Typical usage::
 from __future__ import annotations
 
 import contextlib
+import datetime as _dt
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -42,9 +43,10 @@ DEFAULT_FA_POSITIONS = ("SP", "RP", "C", "OF", "SS")
 SYSTEM_PROMPT = """\
 You are an expert fantasy baseball analyst advising one specific team in an \
 ESPN fantasy baseball league. You are given a snapshot of the league: the \
-scoring settings, standings, the manager's full roster (with recent \
-performance splits and injury statuses), the current matchup, the top \
-available free agents, and recent league transactions.
+scoring settings and season timeline, standings, the manager's full roster \
+(with recent performance splits and injury statuses), the current matchup, \
+the top available free agents, recent player news for injured players, and \
+recent league transactions.
 
 Produce a concise, actionable report in Markdown with these sections:
 
@@ -53,9 +55,10 @@ Three to five bullet points with your highest-priority moves.
 
 ## Pickups
 The best available free agents for THIS roster, ranked. For each: who to \
-add, who to drop to make room (from this roster only), and a one-to-two \
-sentence rationale grounded in the numbers provided (recent performance, \
-ownership trend, positional need, injuries).
+add, who to drop to make room (from this roster only), the drop's claim \
+risk, and a one-to-two sentence rationale grounded in the numbers provided \
+(recent performance, rest-of-season projection, ownership trend, positional \
+need, injuries).
 
 ## Drops / Watch List
 Rostered players who are droppable or trending the wrong way, and why.
@@ -71,11 +74,28 @@ and rosters (e.g. stream starts, punt a category, play it safe).
 Rules:
 - Only recommend adding players listed in the FREE AGENTS section, and only
   recommend dropping players on the manager's roster.
+- Treat every drop as likely PERMANENT. In a league of this size, useful
+  players get claimed off waivers within days. For each recommended drop,
+  label the claim risk (LOW / MEDIUM / HIGH, judged from ownership % and
+  rest-of-season projection) and confirm the rest-of-season value gained
+  exceeds the value given up — not just this week's points. Recommend
+  dropping a player for a short-term stream only when the dropped player is
+  genuinely replaceable from the pool later.
+- Check the PLAYER NEWS section before any recommendation involving an
+  injured player. Weigh the expected return timeline against the weeks
+  remaining in the season: an IL stash only helps if the player is expected
+  back in time to matter, and a 60-day IL move late in the season is often
+  season-ending. If no timeline is given, say the timeline is unknown
+  rather than assuming a return.
 - Ground every claim in the data provided; do not invent stats. If the data
   is insufficient for a judgment, say so briefly rather than guessing.
 - Respect the league's scoring type when weighing players.
-- Be decisive: rank options and commit to recommendations.\
+- Be decisive: rank options and commit to recommendations, flagging genuine
+  uncertainty where it exists.\
 """
+
+#: Fantasy news endpoint used to enrich injured players with recent stories.
+NEWS_URL = "https://site.web.api.espn.com/apis/fantasy/v3/games/flb/news/players"
 
 
 class AdvisorError(ESPNFantasyError):
@@ -142,12 +162,15 @@ class Advisor:
     def build_context(self) -> str:
         """Assemble the league snapshot fed to Claude, as plain Markdown."""
         lg = self.league
+        team = lg.team(self.team_id)
+        fa_lists = _gather_free_agents(lg, size=self.fa_size, positions=self.fa_positions)
         sections = [
             _settings_section(lg),
             _standings_section(lg, self.team_id),
-            _roster_section(lg.team(self.team_id)),
+            _roster_section(team),
             _matchup_section(lg, self.team_id),
-            _free_agents_section(lg, size=self.fa_size, positions=self.fa_positions),
+            _free_agents_section(fa_lists),
+            _news_section(lg, team, fa_lists),
             _activity_section(lg),
         ]
         return "\n\n".join(s for s in sections if s)
@@ -225,12 +248,32 @@ def _settings_section(lg: League) -> str:
         f"{s.name} — season {s.season}, {s.size} teams, scoring: {s.scoring_type}",
         "Roster slots: " + ", ".join(f"{slot}×{n}" for slot, n in s.roster_slots.items()),
     ]
+    timeline = _timeline_line(lg, s.regular_season_matchup_periods)
+    if timeline:
+        lines.append(timeline)
     if s.acquisition_budget:
         lines.append(f"FAAB budget: {s.acquisition_budget}")
     if s.scoring:
         rules = ", ".join(f"{i.stat_name} {i.points:+g}" for i in s.scoring)
         lines.append(f"Scoring rules: {rules}")
     return "\n".join(lines)
+
+
+def _timeline_line(lg: League, total_periods: int) -> str:
+    """One line placing today inside the season, so stash/stream tradeoffs
+    can be weighed against the time actually remaining."""
+    today = _dt.date.today().isoformat()
+    with contextlib.suppress(ESPNFantasyError):
+        matchups = lg.scoreboard()
+        if matchups and total_periods:
+            current = matchups[0].matchup_period
+            remaining = max(total_periods - current, 0)
+            return (
+                f"Today: {today}. Current matchup period: {current} of "
+                f"{total_periods} regular-season periods ({remaining} remaining "
+                "before playoffs)."
+            )
+    return f"Today: {today}."
 
 
 def _standings_section(lg: League, team_id: int) -> str:
@@ -284,14 +327,10 @@ def _matchup_section(lg: League, team_id: int) -> str:
     return ""
 
 
-def _free_agents_section(lg: League, *, size: int, positions: tuple[str, ...]) -> str:
-    lines = ["# FREE AGENTS"]
-
-    def _add_list(title: str, players: list[Player]) -> None:
-        if not players:
-            return
-        lines.append(f"## {title}")
-        lines.extend(_player_line(p) for p in players)
+def _gather_free_agents(
+    lg: League, *, size: int, positions: tuple[str, ...]
+) -> list[tuple[str, list[Player]]]:
+    """Fetch the free-agent lists once so both the FA and news sections can use them."""
 
     def _fetch(**kwargs: Any) -> list[Player]:
         # ESPN rejects some filter/sort combinations for some leagues; a
@@ -309,11 +348,78 @@ def _free_agents_section(lg: League, *, size: int, positions: tuple[str, ...]) -
         key=lambda p: _split_total(p, "last_7") or 0.0,
         reverse=True,
     )
-    _add_list("Hottest (last 7 days)", hottest[:size])
-    _add_list("Most owned", pool[:size])
-    for pos in positions:
-        _add_list(f"Top {pos}", _fetch(size=min(size, 10), position=pos))
+    lists = [
+        ("Hottest (last 7 days)", hottest[:size]),
+        ("Most owned", pool[:size]),
+    ]
+    lists.extend(
+        (f"Top {pos}", _fetch(size=min(size, 10), position=pos)) for pos in positions
+    )
+    return lists
+
+
+def _free_agents_section(fa_lists: list[tuple[str, list[Player]]]) -> str:
+    lines = ["# FREE AGENTS"]
+    for title, players in fa_lists:
+        if not players:
+            continue
+        lines.append(f"## {title}")
+        lines.extend(_player_line(p) for p in players)
     return "\n".join(lines)
+
+
+def _news_section(
+    lg: League,
+    team: Team,
+    fa_lists: list[tuple[str, list[Player]]],
+    *,
+    max_players: int = 12,
+) -> str:
+    """Recent news for injured players, so recommendations can weigh actual
+    return timelines instead of the bare IL designation."""
+    candidates: dict[int, Player] = {}
+    for p in team.roster:
+        if _is_injured(p):
+            candidates.setdefault(p.id, p)
+    for _, players in fa_lists:
+        for p in players:
+            if _is_injured(p):
+                candidates.setdefault(p.id, p)
+
+    lines = ["# PLAYER NEWS (injured players — check return timelines here)"]
+    found = False
+    for p in list(candidates.values())[:max_players]:
+        items = _fetch_player_news(lg, p.id)
+        if not items:
+            continue
+        found = True
+        lines.append(f"## {p.name} ({p.injury_status})")
+        lines.extend(items)
+    return "\n".join(lines) if found else ""
+
+
+def _is_injured(p: Player) -> bool:
+    return bool(p.injury_status) and p.injury_status not in {"ACTIVE", "Active"}
+
+
+def _fetch_player_news(lg: League, player_id: int, *, limit: int = 2) -> list[str]:
+    try:
+        resp = lg.client.session.request(
+            "GET", f"{NEWS_URL}?playerId={player_id}&limit={limit}", timeout=15
+        )
+        data = resp.json() if resp.status_code == 200 else {}
+    except Exception:
+        return []
+    feed = ((data or {}).get("news") or {}).get("feed") or []
+    items = []
+    for item in feed[:limit]:
+        headline = item.get("headline") or ""
+        if not headline:
+            continue
+        story = " ".join((item.get("story") or "").split())[:350]
+        published = (item.get("published") or "")[:10]
+        items.append(f"- [{published}] {headline} {story}".rstrip())
+    return items
 
 
 def _activity_section(lg: League) -> str:
@@ -355,7 +461,11 @@ def _player_line(p: Player, *, slot: bool = False) -> str:
     season = _split_total(p, "season")
     if season is not None:
         bits.append(f"season_pts={season:.1f}")
-    for split, label in (("last_7", "last7_pts"), ("last_15", "last15_pts")):
+    for split, label in (
+        ("last_7", "last7_pts"),
+        ("last_15", "last15_pts"),
+        ("last_30", "last30_pts"),
+    ):
         total = _split_total(p, split)
         if total is not None:
             bits.append(f"{label}={total:.1f}")

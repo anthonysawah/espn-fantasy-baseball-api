@@ -6,11 +6,17 @@ from typing import Any
 
 import pytest
 
+from espn_fantasy_baseball import ESPNClient, League
 from espn_fantasy_baseball.advisor import (
     AdviceReport,
     Advisor,
     AdvisorError,
+    _fetch_player_news,
+    _news_section,
 )
+from espn_fantasy_baseball.resources import Player, Team
+
+from .conftest import FakeSession, _default_routes
 
 # ---------------------------------------------------------------------------
 # Fake Anthropic client
@@ -88,6 +94,70 @@ def test_build_context_marks_correct_team(fake_league):
     marked = [line for line in context.splitlines() if "<-- YOUR TEAM" in line]
     assert len(marked) == 1
     assert "Bob's Bombers" in marked[0]
+
+
+def test_build_context_includes_timeline(fake_league):
+    advisor = Advisor(fake_league, team_id=1, anthropic_client=FakeAnthropic())
+    context = advisor.build_context()
+    assert "Today: " in context
+
+
+NEWS_PAYLOAD = {
+    "news": {
+        "feed": [
+            {
+                "headline": "Rooker ruled out for the season.",
+                "story": "Rooker underwent knee surgery and is expected back for spring training.",
+                "published": "2026-07-17T20:33:39Z",
+            }
+        ]
+    }
+}
+
+
+def _news_league() -> League:
+    routes = _default_routes()
+    routes[""] = NEWS_PAYLOAD  # requests without ?view= (the news endpoint)
+    session = FakeSession(routes)
+    client = ESPNClient(league_id=123456, year=2024, session=session)
+    return League(league_id=123456, year=2024, client=client)
+
+
+def test_fetch_player_news_returns_lines():
+    lg = _news_league()
+    lines = _fetch_player_news(lg, 40926)
+    assert len(lines) == 1
+    assert "Rooker ruled out for the season." in lines[0]
+    assert "[2026-07-17]" in lines[0]
+
+
+def test_news_section_covers_injured_roster_players():
+    lg = _news_league()
+    injured = Player(id=40926, name="Brent Rooker", pro_team="OAK", injury_status="60-Day IL")
+    healthy = Player(id=1, name="Healthy Guy", pro_team="NYY", injury_status="ACTIVE")
+    team = Team(id=1, abbreviation="T", name="Test", roster=[injured, healthy])
+    section = _news_section(lg, team, fa_lists=[])
+    assert "# PLAYER NEWS" in section
+    assert "Brent Rooker (60-Day IL)" in section
+    assert "spring training" in section
+    assert "Healthy Guy" not in section
+
+
+def test_news_section_empty_when_no_injuries():
+    lg = _news_league()
+    team = Team(id=1, abbreviation="T", name="Test", roster=[
+        Player(id=1, name="Healthy Guy", pro_team="NYY", injury_status="ACTIVE"),
+    ])
+    assert _news_section(lg, team, fa_lists=[]) == ""
+
+
+def test_system_prompt_covers_scarcity_and_injury_timelines(fake_league):
+    client = FakeAnthropic()
+    Advisor(fake_league, team_id=1, anthropic_client=client).advise()
+    (call,) = client.messages.calls
+    assert "PERMANENT" in call["system"]
+    assert "claim risk" in call["system"]
+    assert "PLAYER NEWS" in call["system"]
 
 
 def test_build_context_includes_free_agent_stats(fake_league):
