@@ -293,10 +293,26 @@ def _free_agents_section(lg: League, *, size: int, positions: tuple[str, ...]) -
         lines.append(f"## {title}")
         lines.extend(_player_line(p) for p in players)
 
-    _add_list("Hottest (last 7 days)", lg.free_agents(size=size, sort_by="last7_points"))
-    _add_list("Most owned", lg.free_agents(size=size, sort_by="percent_owned"))
+    def _fetch(**kwargs: Any) -> list[Player]:
+        # ESPN rejects some filter/sort combinations for some leagues; a
+        # missing list is better than no report at all.
+        try:
+            return lg.free_agents(**kwargs)
+        except ESPNFantasyError:
+            return []
+
+    # ESPN's server-side last-7 sort is unreliable, so fetch a wide pool by
+    # ownership and rank the hot hands client-side from the stat splits.
+    pool = _fetch(size=max(size * 3, 50))
+    hottest = sorted(
+        (p for p in pool if (_split_total(p, "last_7") or 0.0) > 0.0),
+        key=lambda p: _split_total(p, "last_7") or 0.0,
+        reverse=True,
+    )
+    _add_list("Hottest (last 7 days)", hottest[:size])
+    _add_list("Most owned", pool[:size])
     for pos in positions:
-        _add_list(f"Top {pos}", lg.free_agents(size=min(size, 10), position=pos))
+        _add_list(f"Top {pos}", _fetch(size=min(size, 10), position=pos))
     return "\n".join(lines)
 
 
@@ -324,9 +340,9 @@ def _activity_section(lg: League) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _split_total(player: Player, split: str) -> float | None:
+def _split_total(player: Player, split: str, *, source: str = "real") -> float | None:
     for s in player.stats:
-        if s.split == split and s.source == "real":
+        if s.split == split and s.source == source:
             return s.applied_total
     return None
 
@@ -343,6 +359,9 @@ def _player_line(p: Player, *, slot: bool = False) -> str:
         total = _split_total(p, split)
         if total is not None:
             bits.append(f"{label}={total:.1f}")
+    proj = _split_total(p, "season", source="projected")
+    if proj:
+        bits.append(f"proj_season={proj:.0f}")
     bits.append(f"owned={p.percent_owned:.1f}%")
     if p.injury_status and p.injury_status not in {"ACTIVE", "Active"}:
         bits.append(f"INJURY={p.injury_status}")
