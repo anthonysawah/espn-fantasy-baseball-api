@@ -199,6 +199,28 @@ def _cmd_insights(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_advise(args: argparse.Namespace) -> int:
+    from .advisor import Advisor
+
+    lg = _league_from_args(args)
+    preferences = None
+    if args.prefs_file:
+        with open(args.prefs_file, encoding="utf-8") as f:
+            preferences = f.read()
+    advisor = Advisor(
+        lg, team_id=args.team, model=args.model, fa_size=args.fa_size,
+        preferences=preferences,
+    )
+    report = advisor.advise(focus=args.focus)
+    if args.output:
+        with open(args.output, "w") as f:
+            f.write(report.markdown)
+        print(f"Report written to {args.output}")
+    else:
+        print(report.markdown)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="espn-fb", description="ESPN Fantasy Baseball CLI")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
@@ -284,6 +306,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_ins = sub.add_parser("insights", parents=[common], help="Per-matchup performance insights for a week")
     p_ins.add_argument("--week", type=int, required=True)
     p_ins.set_defaults(func=_cmd_insights)
+
+    p_advise = sub.add_parser(
+        "advise", parents=[common],
+        help="AI pickup/drop/lineup recommendations (requires ANTHROPIC_API_KEY)",
+    )
+    p_advise.add_argument("--team", type=int, required=True, help="Your team id")
+    p_advise.add_argument("--model", default="claude-opus-4-8", help="Claude model id")
+    p_advise.add_argument("--fa-size", type=int, default=20, help="Free agents to scan per list")
+    p_advise.add_argument("--focus", default=None, help="Extra question to emphasise")
+    p_advise.add_argument(
+        "--prefs-file", default=None,
+        help="Manager preferences file (default: auto-load advisor-preferences.md if present)",
+    )
+    p_advise.add_argument("--output", default=None, help="Write the report to a file instead of stdout")
+    p_advise.set_defaults(func=_cmd_advise)
 
     return parser
 

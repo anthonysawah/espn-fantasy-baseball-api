@@ -49,6 +49,10 @@ A modern, typed, friendly Python client for the **ESPN Fantasy Baseball** API.
 - **Matchup analytics** — summaries, boxscore insights (top performer,
   bench points left on the table), strength-of-schedule, close-games,
   longest winning streak.
+- **AI advisor** — daily pickup / drop / lineup / matchup recommendations
+  for your team, powered by Claude. Run `espn-fb advise` on demand or let
+  the bundled GitHub Actions workflow post a report every morning.
+  See [`docs/AI_ADVISOR.md`](./docs/AI_ADVISOR.md).
 - **Private-league auth** via `espn_s2` / `SWID` cookies, with braces
   auto-normalized.
 - **Decoded everything** — no more `stats["5"]`, you get `stats["HR"]`.
@@ -148,6 +152,12 @@ Installing the package adds an `espn-fb` command. All subcommands take
 | `espn-fb il-on --team ID --player PID --from-slot BE --period N` | Move onto IL. |
 | `espn-fb il-off --team ID --player PID --to-slot BE --period N` | Activate off IL. |
 | `espn-fb trade --team ID --to-team ID --offering … --requesting …` | Propose a trade. |
+
+**AI** (requires `pip install "espn-fantasy-baseball-api[ai]"` + `ANTHROPIC_API_KEY`)
+
+| Command | Purpose |
+| --- | --- |
+| `espn-fb advise --team ID [--focus "..."] [--output report.md]` | AI pickup/drop/lineup/matchup recommendations. |
 
 ```bash
 espn-fb standings --league 123456 --year 2024
@@ -266,6 +276,20 @@ for m in lg.close_games(margin_threshold=5.0):
     print(m)
 print("Longest win streak:", lg.longest_win_streak(team_id=1))
 ```
+
+### AI recommendations for your team
+
+```python
+from espn_fantasy_baseball import League, Advisor
+
+lg = League(league_id=123456, year=2025, espn_s2="...", swid="{...}")
+report = Advisor(lg, team_id=1).advise(focus="I need saves")
+print(report.markdown)
+```
+
+Requires the `[ai]` extra and an `ANTHROPIC_API_KEY`. A bundled GitHub
+Actions workflow can post this report to your repo as an issue every
+morning — see [`docs/AI_ADVISOR.md`](./docs/AI_ADVISOR.md).
 
 More recipes in [`docs/COOKBOOK.md`](./docs/COOKBOOK.md) and a complete
 management guide in [`docs/MANAGING.md`](./docs/MANAGING.md).

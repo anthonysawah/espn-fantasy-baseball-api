@@ -1,0 +1,90 @@
+name: AI Advisor
+
+# Posts a daily AI recommendation report (pickups, drops, lineup and matchup
+# advice) for your team as a GitHub issue.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   LEAGUE_ID           ESPN league id (e.g. 123456)
+#   TEAM_ID             Your team id within the league
+#   ESPN_S2             espn_s2 cookie (private leagues; see docs/AUTHENTICATION.md)
+#   SWID                SWID cookie (private leagues)
+#   ANTHROPIC_API_KEY   Claude API key (console.anthropic.com)
+#
+# Optional secret:
+#   SEASON              Season year; defaults to the current year.
+
+on:
+  schedule:
+    # 11:00 UTC = 7:00 AM ET, before waivers/lineups lock for the day.
+    - cron: "0 11 * * *"
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: "Optional extra question for the advisor"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  advise:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check secrets
+        id: check
+        env:
+          LEAGUE_ID: ${{ secrets.LEAGUE_ID }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$LEAGUE_ID" ] || [ -z "$TEAM_ID" ] || [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "Missing LEAGUE_ID, TEAM_ID or ANTHROPIC_API_KEY secrets — skipping."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.configured == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        if: steps.check.outputs.configured == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[ai]"
+
+      - name: Generate report
+        if: steps.check.outputs.configured == 'true'
+        env:
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          SWID: ${{ secrets.SWID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LEAGUE_ID: ${{ secrets.LEAGUE_ID }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          SEASON: ${{ secrets.SEASON }}
+          FOCUS: ${{ github.event.inputs.focus }}
+        run: |
+          YEAR="${SEASON:-$(date +%Y)}"
+          ARGS=(--league "$LEAGUE_ID" --year "$YEAR" --team "$TEAM_ID" --output report.md)
+          if [ -n "$FOCUS" ]; then
+            ARGS+=(--focus "$FOCUS")
+          fi
+          espn-fb advise "${ARGS[@]}"
+
+      - name: Post report as issue
+        if: steps.check.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="⚾ AI Advisor Report — $(date -u '+%Y-%m-%d')"
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TITLE" \
+            --body-file report.md

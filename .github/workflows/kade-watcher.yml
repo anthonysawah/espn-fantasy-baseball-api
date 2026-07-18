@@ -1,0 +1,141 @@
+name: Kade Anderson Call-Up Watcher
+
+# Checks every 30 minutes whether SEA prospect Kade Anderson has been called
+# up (official MLB Stats API roster + transaction log), and posts an alert
+# issue with the Rotowire writeup when it happens. No secrets or API keys
+# required. Runs on the default branch's schedule once merged.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: "Post a TEST alert issue (then close it) to verify the pipeline"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check call-up status
+        id: check
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, urllib.request, datetime
+
+          MLBAM_ID = "807739"     # Kade Anderson (MLB Stats API)
+          ESPN_ID = "5198748"     # Kade Anderson (ESPN fantasy)
+          TEAM = "136"            # Seattle Mariners
+
+          def get(url):
+              with urllib.request.urlopen(url, timeout=30) as r:
+                  return json.load(r)
+
+          called_up = False
+          evidence = ""
+
+          try:
+              roster = get(f"https://statsapi.mlb.com/api/v1/teams/{TEAM}/roster/active")
+              for e in roster.get("roster", []):
+                  person = e.get("person", {})
+                  if str(person.get("id")) == MLBAM_ID or person.get("fullName") == "Kade Anderson":
+                      called_up = True
+                      evidence = "On the Mariners' active roster (MLB Stats API)."
+          except Exception as exc:
+              print(f"note=roster check failed: {exc}")
+
+          if not called_up:
+              try:
+                  today = datetime.date.today()
+                  start = today - datetime.timedelta(days=7)
+                  tx = get(
+                      f"https://statsapi.mlb.com/api/v1/transactions?teamId={TEAM}"
+                      f"&startDate={start}&endDate={today}"
+                  )
+                  for t in tx.get("transactions", []):
+                      desc = t.get("description", "")
+                      pid = str((t.get("person") or {}).get("id", ""))
+                      if ("Kade Anderson" in desc or pid == MLBAM_ID) and any(
+                          k in (t.get("typeDesc") or "") for k in ("Recalled", "Selected", "Purchase")
+                      ):
+                          called_up = True
+                          evidence = f"Official transaction {t.get('date')}: {desc}"
+              except Exception as exc:
+                  print(f"note=transaction check failed: {exc}")
+
+          writeup = ""
+          try:
+              news = get(
+                  "https://site.web.api.espn.com/apis/fantasy/v3/games/flb/news/players"
+                  f"?playerId={ESPN_ID}&limit=2"
+              )
+              items = []
+              for item in (news.get("news", {}).get("feed", []) or [])[:2]:
+                  headline = item.get("headline", "")
+                  story = " ".join((item.get("story") or "").split())
+                  published = (item.get("published") or "")[:10]
+                  if headline:
+                      items.append(f"**[{published}] {headline}**\n\n{story}")
+              writeup = "\n\n".join(items)
+          except Exception as exc:
+              print(f"note=news fetch failed: {exc}")
+
+          out = {"called_up": called_up, "evidence": evidence, "writeup": writeup}
+          print("called_up=" + str(called_up).lower())
+          with open("alert_data.json", "w") as f:
+              json.dump(out, f)
+          EOF
+          echo "Check complete."
+
+      - name: Post alert issue
+        if: steps.check.outputs.called_up == 'true' || inputs.test_mode == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_MODE: ${{ inputs.test_mode }}
+        run: |
+          EVIDENCE=$(python3 -c "import json; print(json.load(open('alert_data.json'))['evidence'])")
+          WRITEUP=$(python3 -c "import json; print(json.load(open('alert_data.json'))['writeup'])")
+
+          if [ "$TEST_MODE" = "true" ]; then
+            TITLE="🧪 TEST: Kade Anderson alert pipeline — this is what the real alert will look like"
+            HEADER="**THIS IS A TEST** — Kade Anderson has NOT actually been called up. This issue verifies the alert pipeline and shows the real alert's format."
+          else
+            TITLE="🚨 Kade Anderson called up — claim him now"
+            HEADER="**Kade Anderson has been called up by the Mariners.**"
+            # Don't double-alert: skip if an open alert already exists.
+            EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "🚨 Kade Anderson in:title" --json number --jq 'length')
+            if [ "$EXISTING" != "0" ]; then
+              echo "Alert issue already exists — skipping."
+              exit 0
+            fi
+          fi
+
+          BODY=$(cat <<EOF
+          $HEADER
+
+          ## Latest news (Rotowire via ESPN)
+          ${WRITEUP:-_No writeup posted yet — the Rotowire blurb usually follows the official move within minutes._}
+
+          ## Official source
+          ${EVIDENCE:-Detected by the scheduled watcher (see workflow run for details).}
+
+          ## Claim details
+          - ESPN player id: **5198748** — SP-eligible, ~3% owned as of 7/18
+          - Double-A line at promotion watch: **8-1, 1.36 ERA**
+          - League rule reminder: adds require a drop first (see \`advisor-preferences.md\` for the droppable pool)
+
+          ---
+          *Posted automatically by the Kade Anderson Call-Up Watcher (checks every 30 minutes via the official MLB Stats API).*
+          EOF
+          )
+          URL=$(gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY")
+          echo "Created: $URL"
+          if [ "$TEST_MODE" = "true" ]; then
+            gh issue close "$URL" --repo "$GITHUB_REPOSITORY" --comment "Test complete — pipeline verified. The real alert will stay open."
+          fi
