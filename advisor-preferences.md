@@ -3,6 +3,20 @@
 The advisor reads this file on every run and must respect it. Edit freely —
 or just tell Claude to update it.
 
+## Droppable pool (hard boundary)
+
+The manager considers ONLY these active-roster players potentially
+droppable: **Griffin Jax**, **Willi Castro**, **Ezequiel Duran**. Do not
+propose dropping anyone else on the active roster, period.
+
+- Duran's recent hot stretch may take him off this list — check his
+  computed trend before proposing him, and flag it if he's heating.
+- IL-slot players (currently Mick Abel, Jordan Lawlar) are a separate
+  category: they may be proposed as drops only to free an IL slot, with
+  their verified return timeline weighed first.
+- If an add has no acceptable drop within this pool, recommend skipping
+  the add.
+
 ## Protected players (never recommend dropping)
 
 - **Kyle Teel (C, CHW)** — young catcher with keeper upside, now in an
@@ -18,9 +32,8 @@ or just tell Claude to update it.
 
 - **Kody Clemens (MIN)** — the manager rates his hot bat (86 pts over the
   last 30 days, 5 HR in 8 games in early July) above his modest
-  rest-of-season projection. Only propose dropping him with strong,
-  current evidence that the role or the bat has actually faded — a single
-  cold week is not enough.
+  rest-of-season projection. Treat him as effectively protected while the
+  bat stays hot; he is NOT in the droppable pool.
 
 ## Strategy
 

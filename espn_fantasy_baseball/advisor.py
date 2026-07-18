@@ -97,7 +97,22 @@ Rules:
   is insufficient for a judgment, say so briefly rather than guessing.
 - Respect the league's scoring type when weighing players.
 - Be decisive: rank options and commit to recommendations, flagging genuine
-  uncertainty where it exists.\
+  uncertainty where it exists.
+
+Before finalizing, run this verification checklist and fix any violation:
+1. Every recommended add appears in the FREE AGENTS section; every
+   recommended drop is on the manager's roster.
+2. No recommendation violates MANAGER PREFERENCES (protected players,
+   droppable-pool limits, stated strategy).
+3. Every recommended drop comes from the weakest names in the computed
+   drop-candidate ranking; recommending a drop ranked clearly higher
+   requires an explicit justification of why the ranking is wrong here.
+4. Every claim about a player's form agrees with his computed trend label —
+   never describe a "heating" player as cold or a "cooling" player as hot.
+5. Every recommendation involving an injured player cites his timeline from
+   PLAYER NEWS, or explicitly states the timeline is unknown.
+6. Any add without an acceptable drop is downgraded to "skip" — never
+   manufacture a drop to justify an add.\
 """
 
 #: Fantasy news endpoint used to enrich injured players with recent stories.
@@ -339,6 +354,7 @@ def _roster_section(team: Team) -> str:
             continue
         lines.append(f"## {label}")
         lines.extend(_player_line(p, slot=True) for p in players)
+    lines.extend(_drop_ranking_block(team))
     return "\n".join(lines)
 
 
@@ -492,6 +508,58 @@ def _split_total(player: Player, split: str, *, source: str = "real") -> float |
     return None
 
 
+def _trend(p: Player) -> str | None:
+    """Deterministic form label: compare the last-7 weekly scoring rate to the
+    prior 23 days, so "hot"/"cold" is computed rather than eyeballed."""
+    l7 = _split_total(p, "last_7")
+    l30 = _split_total(p, "last_30")
+    if l7 is None or l30 is None:
+        return None
+    if l7 <= 0 and l30 <= 0:
+        return "quiet"
+    prior_week_rate = (l30 - l7) / 23.0 * 7.0
+    if l7 >= prior_week_rate * 1.25 + 1:
+        return "heating"
+    if l7 <= prior_week_rate * 0.75 - 1:
+        return "cooling"
+    return "steady"
+
+
+def _rest_of_season_value(p: Player) -> float:
+    """Rest-of-season value estimate: ESPN projection when available,
+    season-to-date total as a fallback (so hot rookies without projections
+    aren't ranked as worthless)."""
+    proj = _split_total(p, "season", source="projected")
+    if proj is not None and proj > 0:
+        return proj
+    return _split_total(p, "season") or 0.0
+
+
+def _drop_ranking_block(team: Team, *, limit: int = 8) -> list[str]:
+    """Code-computed weakest-first ranking of the roster, so drop candidates
+    come from math instead of a skim of the stat lines."""
+    ranked = sorted(team.roster, key=_rest_of_season_value)
+    lines = [
+        "## Computed drop-candidate ranking (weakest first, by rest-of-season "
+        "value: ESPN projection, else season points; apply MANAGER PREFERENCES "
+        "and injury timelines on top)"
+    ]
+    for i, p in enumerate(ranked[:limit], 1):
+        proj = _split_total(p, "season", source="projected")
+        proj_txt = f"{proj:.0f}" if proj is not None else "n/a"
+        bits = [
+            f"{i}. {p.name} — ros_value={_rest_of_season_value(p):.0f}",
+            f"proj={proj_txt}",
+        ]
+        trend = _trend(p)
+        if trend:
+            bits.append(f"trend={trend}")
+        if _is_injured(p):
+            bits.append(f"INJURY={p.injury_status}")
+        lines.append("  ".join(bits))
+    return lines
+
+
 def _player_line(p: Player, *, slot: bool = False) -> str:
     positions = "/".join(p.eligible_positions) or "?"
     bits = [f"- {p.name} ({p.pro_team}, {positions})"]
@@ -511,6 +579,9 @@ def _player_line(p: Player, *, slot: bool = False) -> str:
     proj = _split_total(p, "season", source="projected")
     if proj:
         bits.append(f"proj_season={proj:.0f}")
+    trend = _trend(p)
+    if trend:
+        bits.append(f"trend={trend}")
     bits.append(f"owned={p.percent_owned:.1f}%")
     if p.injury_status and p.injury_status not in {"ACTIVE", "Active"}:
         bits.append(f"INJURY={p.injury_status}")

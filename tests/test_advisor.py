@@ -11,10 +11,12 @@ from espn_fantasy_baseball.advisor import (
     AdviceReport,
     Advisor,
     AdvisorError,
+    _drop_ranking_block,
     _fetch_player_news,
     _news_section,
+    _trend,
 )
-from espn_fantasy_baseball.resources import Player, Team
+from espn_fantasy_baseball.resources import Player, PlayerStats, Team
 
 from .conftest import FakeSession, _default_routes
 
@@ -158,6 +160,58 @@ def test_system_prompt_covers_scarcity_and_injury_timelines(fake_league):
     assert "PERMANENT" in call["system"]
     assert "claim risk" in call["system"]
     assert "PLAYER NEWS" in call["system"]
+
+
+def _player_with_splits(name: str, *, last7: float, last30: float, proj: float | None = None,
+                        season: float = 0.0, pid: int = 1) -> Player:
+    stats = [
+        PlayerStats(season=2024, source="real", split="last_7", applied_total=last7),
+        PlayerStats(season=2024, source="real", split="last_30", applied_total=last30),
+        PlayerStats(season=2024, source="real", split="season", applied_total=season),
+    ]
+    if proj is not None:
+        stats.append(PlayerStats(season=2024, source="projected", split="season", applied_total=proj))
+    return Player(id=pid, name=name, pro_team="NYY", stats=stats)
+
+
+def test_trend_labels_are_computed_not_eyeballed():
+    # 16 of 21 pts in the last 7 days: warming up, whatever the 30-day total looks like.
+    assert _trend(_player_with_splits("Jeffers", last7=16, last30=21)) == "heating"
+    # Big month, dead week: cooling.
+    assert _trend(_player_with_splits("Cold", last7=0, last30=80)) == "cooling"
+    # Evenly spread production: steady.
+    assert _trend(_player_with_splits("Steady", last7=14, last30=60)) == "steady"
+    # Nothing at all (e.g. long-term IL): quiet.
+    assert _trend(_player_with_splits("Hurt", last7=0, last30=0)) == "quiet"
+    # No split data: no label.
+    assert _trend(Player(id=9, name="Nobody", pro_team="NYY")) is None
+
+
+def test_drop_ranking_orders_by_rest_of_season_value():
+    team = Team(id=1, abbreviation="T", name="Test", roster=[
+        _player_with_splits("Star", last7=10, last30=40, proj=400, season=500, pid=1),
+        _player_with_splits("Scrub", last7=0, last30=2, proj=50, season=60, pid=2),
+        # Hot rookie without a projection must rank by season points, not zero.
+        _player_with_splits("Rookie", last7=30, last30=90, proj=None, season=150, pid=3),
+    ])
+    lines = _drop_ranking_block(team)
+    assert "Computed drop-candidate ranking" in lines[0]
+    order = [line.split(". ")[1].split(" —")[0] for line in lines[1:]]
+    assert order == ["Scrub", "Rookie", "Star"]
+    assert "trend=heating" in lines[2]  # the rookie's hot streak is visible
+
+
+def test_roster_section_contains_drop_ranking(fake_league):
+    advisor = Advisor(fake_league, team_id=1, anthropic_client=FakeAnthropic(), preferences="")
+    assert "Computed drop-candidate ranking" in advisor.build_context()
+
+
+def test_system_prompt_contains_verification_checklist(fake_league):
+    client = FakeAnthropic()
+    Advisor(fake_league, team_id=1, anthropic_client=client, preferences="").advise()
+    (call,) = client.messages.calls
+    assert "verification checklist" in call["system"]
+    assert "manufacture a drop" in call["system"].lower()
 
 
 def test_preferences_included_and_marked_binding(fake_league):
