@@ -72,6 +72,12 @@ One short paragraph: how to approach the current matchup given the score \
 and rosters (e.g. stream starts, punt a category, play it safe).
 
 Rules:
+- Respect the MANAGER PREFERENCES section absolutely when present: never
+  recommend dropping or trading a player the manager has protected, and let
+  their stated strategy (keeper plans, risk appetite, positional beliefs)
+  shape your rankings. If the data strongly argues against a preference,
+  you may note the tension in one sentence, but the recommendation itself
+  must honor the preference.
 - Only recommend adding players listed in the FREE AGENTS section, and only
   recommend dropping players on the manager's roster.
 - Treat every drop as likely PERMANENT. In a league of this size, useful
@@ -132,7 +138,15 @@ class Advisor:
         How many free agents to scan per list (overall + per position).
     fa_positions:
         Positions to scan individually in the free-agent pool.
+    preferences:
+        Free-text manager preferences (protected players, keeper strategy,
+        risk appetite).  Included in the context as a section the model must
+        respect.  If omitted, a ``advisor-preferences.md`` file in the
+        current working directory is loaded automatically when present.
     """
+
+    #: File auto-loaded from the working directory when ``preferences`` is not given.
+    PREFERENCES_FILE = "advisor-preferences.md"
 
     def __init__(
         self,
@@ -144,12 +158,14 @@ class Advisor:
         anthropic_client: Any = None,
         fa_size: int = 20,
         fa_positions: Iterable[str] = DEFAULT_FA_POSITIONS,
+        preferences: str | None = None,
     ) -> None:
         self.league = league
         self.team_id = team_id
         self.model = model
         self.fa_size = fa_size
         self.fa_positions = tuple(fa_positions)
+        self.preferences = preferences if preferences is not None else _load_preferences_file()
         if anthropic_client is not None:
             self._client = anthropic_client
         else:
@@ -165,6 +181,7 @@ class Advisor:
         team = lg.team(self.team_id)
         fa_lists = _gather_free_agents(lg, size=self.fa_size, positions=self.fa_positions)
         sections = [
+            _preferences_section(self.preferences),
             _settings_section(lg),
             _standings_section(lg, self.team_id),
             _roster_section(team),
@@ -241,6 +258,21 @@ def _build_anthropic_client(api_key: str | None) -> Any:
 # ---------------------------------------------------------------------------
 
 
+def _load_preferences_file() -> str | None:
+    try:
+        with open(Advisor.PREFERENCES_FILE, encoding="utf-8") as f:
+            text = f.read().strip()
+        return text or None
+    except OSError:
+        return None
+
+
+def _preferences_section(preferences: str | None) -> str:
+    if not preferences:
+        return ""
+    return "# MANAGER PREFERENCES (must be respected)\n" + preferences
+
+
 def _settings_section(lg: League) -> str:
     s = lg.settings()
     lines = [
@@ -251,6 +283,13 @@ def _settings_section(lg: League) -> str:
     timeline = _timeline_line(lg, s.regular_season_matchup_periods)
     if timeline:
         lines.append(timeline)
+    draft_settings = ((s.raw or {}).get("settings") or {}).get("draftSettings") or {}
+    keepers = draft_settings.get("keeperCount")
+    if keepers:
+        lines.append(
+            f"Keeper league: {keepers} keeper(s) per team — long-term/keeper value "
+            "matters in add/drop decisions, especially for young players."
+        )
     if s.acquisition_budget:
         lines.append(f"FAAB budget: {s.acquisition_budget}")
     if s.scoring:

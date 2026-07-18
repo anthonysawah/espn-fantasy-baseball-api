@@ -160,6 +160,34 @@ def test_system_prompt_covers_scarcity_and_injury_timelines(fake_league):
     assert "PLAYER NEWS" in call["system"]
 
 
+def test_preferences_included_and_marked_binding(fake_league):
+    advisor = Advisor(
+        fake_league, team_id=1, anthropic_client=FakeAnthropic(),
+        preferences="Never drop Kyle Teel.",
+    )
+    context = advisor.build_context()
+    assert "# MANAGER PREFERENCES (must be respected)" in context
+    assert "Never drop Kyle Teel." in context
+    # The system prompt must instruct the model to honor them.
+    advisor.advise()
+    (call,) = advisor._client.messages.calls
+    assert "MANAGER PREFERENCES" in call["system"]
+
+
+def test_preferences_file_autoloaded(fake_league, tmp_path, monkeypatch):
+    (tmp_path / Advisor.PREFERENCES_FILE).write_text("Protect Player X.")
+    monkeypatch.chdir(tmp_path)
+    advisor = Advisor(fake_league, team_id=1, anthropic_client=FakeAnthropic())
+    assert advisor.preferences == "Protect Player X."
+
+
+def test_preferences_absent_when_no_file(fake_league, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    advisor = Advisor(fake_league, team_id=1, anthropic_client=FakeAnthropic())
+    assert advisor.preferences is None
+    assert "# MANAGER PREFERENCES" not in advisor.build_context()
+
+
 def test_build_context_includes_free_agent_stats(fake_league):
     advisor = Advisor(fake_league, team_id=1, anthropic_client=FakeAnthropic())
     context = advisor.build_context()

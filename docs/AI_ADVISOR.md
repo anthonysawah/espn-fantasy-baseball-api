@@ -110,6 +110,21 @@ To change the schedule, edit the `cron:` line (times are UTC). ESPN cookies
 last roughly a year, so expect to refresh the `ESPN_S2` / `SWID` secrets
 once a season.
 
+## Manager preferences
+
+Create an `advisor-preferences.md` file (repo root / working directory) and
+the advisor loads it automatically on every run — CLI, Python API, and the
+scheduled workflow alike. Use it for:
+
+- **Protected players** the advisor must never recommend dropping.
+- **Player notes** ("I rate X's hot bat over his projection").
+- **Strategy** (keeper plans, risk appetite, positional beliefs).
+
+The prompt treats these as binding: recommendations honor them, and at most
+note in one sentence when the data disagrees. Override the location with
+`espn-fb advise --prefs-file my-prefs.md`, or pass `preferences="..."` to
+`Advisor` directly (an empty string disables auto-loading).
+
 ## Cost
 
 Each report is a single Claude call with roughly 5–15K input tokens and a

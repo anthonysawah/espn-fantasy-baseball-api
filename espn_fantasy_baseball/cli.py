@@ -203,7 +203,14 @@ def _cmd_advise(args: argparse.Namespace) -> int:
     from .advisor import Advisor
 
     lg = _league_from_args(args)
-    advisor = Advisor(lg, team_id=args.team, model=args.model, fa_size=args.fa_size)
+    preferences = None
+    if args.prefs_file:
+        with open(args.prefs_file, encoding="utf-8") as f:
+            preferences = f.read()
+    advisor = Advisor(
+        lg, team_id=args.team, model=args.model, fa_size=args.fa_size,
+        preferences=preferences,
+    )
     report = advisor.advise(focus=args.focus)
     if args.output:
         with open(args.output, "w") as f:
@@ -308,6 +315,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_advise.add_argument("--model", default="claude-opus-4-8", help="Claude model id")
     p_advise.add_argument("--fa-size", type=int, default=20, help="Free agents to scan per list")
     p_advise.add_argument("--focus", default=None, help="Extra question to emphasise")
+    p_advise.add_argument(
+        "--prefs-file", default=None,
+        help="Manager preferences file (default: auto-load advisor-preferences.md if present)",
+    )
     p_advise.add_argument("--output", default=None, help="Write the report to a file instead of stdout")
     p_advise.set_defaults(func=_cmd_advise)
 
