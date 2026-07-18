@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] — 2026-07-18
+
+### Added
+
+- **AI advisor** (`Advisor` / `AdviceReport`) — builds a snapshot of your
+  league (settings, standings, your roster with last-7/last-15 splits and
+  injury statuses, current matchup, top free agents overall and by
+  position, recent transactions) and asks Claude for prioritized
+  pickup / drop / lineup / matchup recommendations.
+- CLI subcommand: `espn-fb advise --team ID [--focus "..."] [--output F]`.
+- Optional dependency extra: `pip install "espn-fantasy-baseball-api[ai]"`
+  (installs the `anthropic` SDK).
+- Scheduled GitHub Actions workflow (`.github/workflows/ai-advisor.yml`)
+  that posts the daily report as a GitHub issue; configured entirely via
+  repository secrets and skips quietly when unconfigured.
+- New guide: `docs/AI_ADVISOR.md`.
+- 8 new tests covering context building and the AI call (fully mocked).
+
 ## [0.2.0] — 2026-04-22
 
 ### Added

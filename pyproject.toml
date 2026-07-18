@@ -29,6 +29,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+ai = ["anthropic>=0.40"]
 cli = ["rich>=13.0"]
 dev = [
     "pytest>=7.4",
@@ -68,3 +69,7 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 no_implicit_optional = true
 check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "anthropic.*"
+ignore_missing_imports = true

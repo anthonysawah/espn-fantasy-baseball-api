@@ -15,6 +15,7 @@ For private leagues pass ``espn_s2`` and ``swid`` cookies::
 
 from __future__ import annotations
 
+from .advisor import AdviceReport, Advisor, AdvisorError
 from .analysis import (
     BoxscoreInsights,
     MatchupSummary,
@@ -74,6 +75,10 @@ __all__ = [
     # writer
     "LeagueWriter",
     "WriteResult",
+    # advisor
+    "Advisor",
+    "AdviceReport",
+    "AdvisorError",
     # analysis
     "MatchupSummary",
     "BoxscoreInsights",
