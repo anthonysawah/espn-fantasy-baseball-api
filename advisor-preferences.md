@@ -12,6 +12,15 @@ or just tell Claude to update it.
   from the droppable pool like any other add, plus the added player
   contributes nothing until activated.
 
+- **Matchup structure varies:** some matchup periods span TWO WEEKS (e.g.,
+  around the All-Star break — matchup 15 in 2026 runs through ~7/26). Never
+  assume a matchup ends Sunday; check the schedule window first.
+- **Acquisition limit is per-matchup** at a rate of 3 per 7 days (= 5 in a
+  two-week matchup; stored as matchupAcquisitionLimit 0.42857/day). BEFORE
+  recommending any add, ALWAYS check `transactionCounter.matchupAcquisitionTotals`
+  for the current period — for OUR team (moves remaining) AND the opponent
+  (their counter-move capacity). State both in every report.
+
 ## Droppable pool (hard boundary)
 
 The manager considers ONLY these active-roster players potentially
